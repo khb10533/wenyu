@@ -1,0 +1,58 @@
+/*!
+ * 文游工坊 —— 手机上的文字冒险 / 视觉小说制作工具
+ * 版权所有 (c) 2026 柳漪春涛（GitHub: khb10533）。保留所有权利。
+ * 未经许可，不得复制、修改或再发布本项目的任何部分。
+ */
+/* 兼容垫片：不支持 color-mix() 的旧浏览器用这份纯 rgba 兜底。
+ * 必须放在 player.css 之前加载 —— 后一条 color-mix 声明若无效会被丢弃，
+ * 于是这里的值生效；支持的浏览器则由 player.css 覆盖。 */
+.wy-scrim { background: linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 40%, rgba(0,0,0,.82) 72%, #0f1115 100%); }
+.wy-ibtn { background: rgba(255,255,255,.1); }
+.wy-ibtn:active { background: rgba(255,255,255,.22); }
+.wy-chip { background: rgba(255,255,255,.11); border: 1px solid rgba(255,255,255,.08); }
+.wy-chip.wy-flash { background: rgba(90,169,255,.35); }
+.wy-textbox { background: rgba(15,17,21,.72); border: 1px solid rgba(255,255,255,.1); }
+.wy-choice { background-color: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); }
+.wy-choice:active { background-color: rgba(90,169,255,.26); }
+.wy-ending { background: rgba(15,17,21,.86); border: 1px solid rgba(90,169,255,.4); }
+.wy-ending-tag { color: #5aa9ff; border: 1px solid rgba(90,169,255,.5); }
+.wy-btn { background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.18); }
+.wy-btn:active { background: rgba(255,255,255,.2); }
+.wy-sheet-body { background: #14181f; border-top: 1px solid rgba(255,255,255,.14); }
+.wy-slot { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08); }
+.wy-panel { background: rgba(20,24,31,.72); border: 1px solid rgba(255,255,255,.1); }
+.wy-input, .wy-select, .wy-area { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); color: inherit; }
+.wy-card { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); }
+.wy-tabbar { background: #14181f; border-top: 1px solid rgba(255,255,255,.1); }
+.wy-topbar { background: #14181f; border-bottom: 1px solid rgba(255,255,255,.1); }
+.wy-btn-ghost { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); }
+.wy-badge { background: rgba(90,169,255,.18); color: #9ccbff; }
+.wy-badge.wy-warn { background: rgba(255,190,80,.16); color: #ffce7a; }
+.wy-badge.wy-err { background: rgba(255,100,100,.16); color: #ff9a9a; }
+.wy-namebar { background: #5aa9ff; color: #08111c; }
+.wy-sprite { filter: drop-shadow(0 12px 28px rgba(0,0,0,.45)); }
+.wy-sprite.wy-dim { filter: brightness(.48) saturate(.6) drop-shadow(0 12px 28px rgba(0,0,0,.45)); }
+
+.wy-screen { background: #0f1115; }
+.wy-codex-card, .wy-save-slot { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); }
+.wy-codex-pic, .wy-save-thumb { background: rgba(0,0,0,.5); }
+.wy-cv { background: rgba(90,169,255,.16); }
+.wy-status-row { background: rgba(255,255,255,.05); border-bottom: 1px solid rgba(255,255,255,.05); }
+.wy-rotate-hint { background: #0f1115; color: #e9edf2; }
+.wy-choice.wy-choice-hasimg { border-color: transparent; }
+
+.wy-player.wy-choicebg-slice .wy-choice:not(.wy-choice-imgonly) {
+  background-color: transparent; border-style: solid; border-width: 13px 18px; padding: 6px 10px;
+}
+
+.wy-player.wy-fit-portrait { width: min(100vw, calc(100vh * 9 / 16)); height: min(100vh, calc(100vw * 16 / 9)); }
+.wy-player.wy-fit-landscape { width: min(100vw, calc(100vh * 16 / 9)); height: min(100vh, calc(100vw * 9 / 16)); }
+.wy-rotate-hint { background: #0f1115; color: #e9edf2; }
+
+.wy-player.wy-box-band .wy-textbox { border-radius: 0; border-left: 0; border-right: 0; border-bottom: 0; background: rgba(15,17,21,.8); }
+.wy-player.wy-box-band .wy-main { padding-left: 0; padding-right: 0; padding-bottom: 0; }
+
+.wy-bubble img { filter: drop-shadow(0 4px 12px rgba(0,0,0,.55)); }
+.wy-player.wy-skin-box .wy-textbox { background-color: transparent; border-width: 16px 22px; border-style: solid; border-color: transparent; }
+.wy-player.wy-skin-codex .wy-codex-card,
+.wy-player.wy-skin-save .wy-save-slot { background-color: transparent; border-style: solid; border-width: 14px 16px; border-color: transparent; }
