@@ -1,5 +1,5 @@
 /* 文游工坊 Service Worker —— 首次加载后整站离线可用 */
-const CACHE = 'wenyu-v11';
+const CACHE = 'wenyu-v14';
 
 const ASSETS = [
   './',
@@ -46,7 +46,7 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   // 下载类请求一律不碰 —— 被缓存拦住的话，会反复下到旧版本的包
-  if (/\/(get|download|download-full)$/.test(url.pathname) || /\.zip$/i.test(url.pathname)) return;
+  if (/\/(get|download|download-source)$/.test(url.pathname) || /\.zip$/i.test(url.pathname)) return;
 
   e.respondWith(
     caches.match(req, { ignoreSearch: true }).then((hit) => {

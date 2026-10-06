@@ -69,7 +69,7 @@
   /** 这个角色此刻该用哪张图（可能因为表情差分换掉） */
   function actorSrc(view, actor) {
     var faceName = view.faces ? view.faces[actor.id] : null;
-    var imgId = WY.actorFaceImage(actor, faceName);
+    var imgId = WY.actorFaceImage(actor, faceName, view.project);
     var a = imgId && view.project.assets ? view.project.assets[imgId] : null;
     return a && a.data ? a.data : null;
   }
@@ -135,7 +135,14 @@
     });
 
     var st = WY.ensureStage(node);
-    st.actors.forEach(function (actor) {
+    // 注意：这里存进 view.actors 的是「解析后」的角色 —— 名字、立绘、表情表
+    // 都来自 project.characters。这样后面所有读 actor.name / actor.sprite /
+    // actor.faces 的地方（谁说话谁亮、换表情、缩略图）自动就对上了，
+    // 不用在十几处各写一遍解析。id / z / dim 仍然是本场景自己的。
+    view.raw = {};
+    st.actors.forEach(function (raw) {
+      var actor = WY.resolveActor(project, raw);
+      view.raw[actor.id] = raw;
       var img = document.createElement('img');
       img.className = 'wy-sprite';
       img.draggable = false;
@@ -395,7 +402,7 @@
     var d = el('div', 'wy-help');
     d.appendChild(el('h3', null, '怎么用舞台'));
     [
-      '① 先在「＋ 添加角色」里选一张图片当立绘（最好是透明背景的 PNG）。',
+      '① 先点「＋ 添加角色」，从「角色」页建好的角色里挑一个上场（名字和立绘自动带过来）。',
       '② 用「预设」一键做出场效果：从左边滑入、淡入、弹出……不用手动打帧。',
       '③ 想自己调：拖动上面的立绘摆位置，时间轴滑块选时刻，改完会自动在这一刻打一个关键帧。',
       '④ 两个关键帧之间，播放器会自动补间（位置、缩放、透明度）。',
@@ -492,7 +499,7 @@
     var chips = el('div', 'wy-actorbar');
     st.actors.forEach(function (a) {
       var c = btn('wy-actorchip' + (a.id === self.selected ? ' on' : ''));
-      c.appendChild(el('span', 'nm', a.name || '未命名'));
+      c.appendChild(el('span', 'nm', WY.resolveActor(p, a).name || '未命名'));
       var kc = (WY.getTrack(node, a.id) || { keys: [] }).keys.length;
       c.appendChild(el('span', 'kc', kc + ' 帧'));
       c.addEventListener('click', function () { self.selected = a.id; self.editFace = null; self.render(); });
@@ -601,63 +608,52 @@
       hd.appendChild(delBtn);
       box.appendChild(hd);
 
-      var row1 = el('div', 'wy-row');
-      row1.appendChild(inp(actor.name, function (v) { actor.name = v; self.softUpdate(); }, '角色名（比如：阿萤）'));
-      box.appendChild(el('label', 'wy-label', '角色名 —— 填成和「说话人」一样，他说话时就会亮起来'));
-      box.appendChild(row1);
-
-      box.appendChild(field('立绘（默认表情）', sel(spritePairs, actor.sprite || '', function (v) {
-        actor.sprite = v || null;
+      // 这个角色「是谁」由「角色」页的定义决定，这里只需要选人：
+      // 名字、立绘、全部表情差分都自动带过来。
+      var chars = WY.charactersOf(p);
+      var chPairs = [['', '（还没选角色）']].concat(
+        chars.map(function (ch) { return [ch.id, ch.name || '（这个角色还没起名字）']; }));
+      box.appendChild(field('这是哪个角色', sel(chPairs, actor.character || '', function (v) {
+        actor.character = v || null;
         self.render();
-      }), images.length ? '' : '还没有图片素材，先去「素材」页上传一张透明背景的 PNG。'));
+      }), chars.length
+        ? '选好角色，名字和立绘自动带过来；「换表情」效果里也能直接挑他的表情。'
+        : '还没有角色。先去「角色」页建一个（名字 + 立绘 + 表情差分）。'));
 
-      /* ---- 表情差分 ---- */
-      var faces = actor.faces || (actor.faces = []);
-      body.appendChild(section('表情差分'));
-      var faceBar = el('div', 'wy-actorbar');
-
-      var defChip = btn('wy-actorchip' + (self.editFace == null ? ' on' : ''), '默认');
-      defChip.addEventListener('click', function () { self.editFace = null; self.render(); });
-      faceBar.appendChild(defChip);
-
-      faces.forEach(function (fc, fi) {
-        var c = btn('wy-actorchip' + (self.editFace === fi ? ' on' : ''));
-        c.appendChild(el('span', 'nm', fc.name || '未命名'));
-        c.addEventListener('click', function () { self.editFace = fi; self.render(); });
-        faceBar.appendChild(c);
+      var gotoChars = btn('wy-btn-ghost', '去「角色」页管理角色 →');
+      gotoChars.style.cssText = 'width:100%;justify-content:center;';
+      gotoChars.addEventListener('click', function () {
+        self.close();
+        if (root.WYEditor && root.WYEditor.setTab) root.WYEditor.setTab('chars');
       });
+      box.appendChild(gotoChars);
 
-      var addFace = btn('wy-actorchip wy-add', '＋ 加表情');
-      addFace.addEventListener('click', function () {
-        faces.push(WY.newFace({ name: '表情' + (faces.length + 1), img: images[0] ? images[0].id : null }));
-        self.editFace = faces.length - 1;
-        self.render();
-      });
-      faceBar.appendChild(addFace);
-      body.appendChild(faceBar);
-
-      if (self.editFace == null) {
-        body.appendChild(el('div', 'wy-hint',
-          '「默认」就是上面那张立绘。加几个表情（微笑 / 生气 / 害羞…），就能在剧情里用「换表情」效果切脸了。'));
+      if (!actor.character) {
+        // 老工程的内联立绘：不选角色也能用，别把人堵死
+        box.appendChild(field('临时立绘', sel(spritePairs, actor.sprite || '', function (v) {
+          actor.sprite = v || null;
+          self.render();
+        }), '这是老工程的内联立绘。在「角色」页建好角色并选上之后，这里就不需要了。'));
       } else {
-        var curFace = faces[self.editFace];
-        if (!curFace) { self.editFace = null; }
-        else {
-          var fbox = el('div', 'wy-sub');
-          fbox.appendChild(field('表情名', inp(curFace.name, function (v) { curFace.name = v; self.softUpdate(); }, '微笑 / 生气 / 害羞')));
-          fbox.appendChild(field('这张脸用哪张图', sel(spritePairs, curFace.img || '', function (v) {
-            curFace.img = v || null;
-            self.render();
-          }), '画布上会立刻显示这张脸。'));
-          var delFace = btn('wy-btn-ghost danger', '删掉这个表情');
-          delFace.addEventListener('click', function () {
-            faces.splice(self.editFace, 1);
-            self.editFace = null;
-            self.render();
-          });
-          fbox.appendChild(delFace);
-          body.appendChild(fbox);
-        }
+        // 表情一览（只读）：改在角色页统一改，所有场景一起生效
+        var faceNames2 = WY.actorFaceNames(actor, p);
+        var resolved2 = WY.resolveActor(p, actor);
+        var ov = el('div', 'wy-faceov');
+        faceNames2.forEach(function (fn2) {
+          var pid2 = WY.characterFaceImage(resolved2, fn2);
+          var chip2 = el('div', 'wy-facechip');
+          if (pid2 && p.assets[pid2]) {
+            var im2 = el('img');
+            im2.src = p.assets[pid2].data;
+            im2.alt = fn2;
+            chip2.appendChild(im2);
+          }
+          chip2.appendChild(el('span', null, fn2));
+          ov.appendChild(chip2);
+        });
+        box.appendChild(el('label', 'wy-label',
+          '这个角色的表情（' + faceNames2.length + ' 个 · 在「角色」页增删，所有场景一起变）'));
+        box.appendChild(ov);
       }
 
       // 位置把手
@@ -778,14 +774,15 @@
       var spkChips = el('div', 'wy-row wrap');
       if (st.actors.length) {
         st.actors.forEach(function (a) {
-          if (!a.name) return;
-          var c = btn('wy-btn-ghost', a.name);
+          var nm = WY.resolveActor(p, a).name;
+          if (!nm) return;
+          var c = btn('wy-btn-ghost', nm);
           c.style.fontSize = '13px';
           c.style.padding = '6px 12px';
           c.addEventListener('click', function () {
-            node.speaker = a.name;
-            spk.value = a.name;
-            WYStage.setSpeaker(self.view, a.name);
+            node.speaker = nm;
+            spk.value = nm;
+            WYStage.setSpeaker(self.view, nm);
           });
           spkChips.appendChild(c);
         });
@@ -1028,31 +1025,105 @@
     });
   };
 
-  StageEditor.addActor = function () {
-    var self = this;
+  /** 把一个角色放上舞台（给个默认出场，免得加完看不见） */
+  StageEditor.placeActor = function (characterId) {
     var node = this.node;
-    var images = WY.assetList(this.project).filter(function (a) { return a.type === 'image'; });
-    if (!images.length) {
-      var d = el('div', 'wy-modal-mask');
-      var m = el('div', 'wy-modal');
-      m.appendChild(el('h3', null, '还没有图片素材'));
-      m.appendChild(el('p', null, '先去「素材」页上传一张立绘图片（透明背景的 PNG 最好），再回来添加角色。'));
-      var b = btn('wy-menu-item', '知道了');
-      b.addEventListener('click', function () { d.remove(); });
-      m.appendChild(b);
-      d.appendChild(m);
-      this.sheet.appendChild(d);
-      return;
-    }
-    var actor = WY.newActor({ sprite: images[0].id, name: '角色' + (node.stage.actors.length + 1) });
+    var actor = WY.newActor({ character: characterId || null });
     node.stage.actors.push(actor);
-    // 给个默认出场，免得加完看不到
     var tr = WY.getTrack(node, actor.id, true);
     tr.keys = WY.buildPreset('slideLeft', WY.STAGE_DEFAULTS, 0);
     WY.sortTrack(tr);
     this.selected = actor.id;
     this.time = 0;
     this.render();
+    if (this.toast) this.toast('已上场');
+  };
+
+  /**
+   * 添加角色 = 从「角色」页定义好的角色里挑一个。
+   * 不再在这里填名字、选立绘 —— 那些属于角色本身，改一次所有场景一起变。
+   */
+  StageEditor.addActor = function () {
+    var self = this;
+    var p = this.project;
+    var chars = WY.charactersOf(p);
+    var images = WY.assetList(p).filter(function (a) { return a.type === 'image'; });
+
+    var d = el('div', 'wy-modal-mask');
+    var m = el('div', 'wy-modal');
+    d.appendChild(m);
+
+    if (!chars.length) {
+      m.appendChild(el('h3', null, '还没有角色'));
+      m.appendChild(el('p', null,
+        '角色要先在「角色」页建好：起个名字、选一张立绘，' +
+        '再把这角色的各个表情（微笑 / 生气 / 害羞…）都挂上去。' +
+        '之后在任何场景里都只要「选角色」，名字和立绘会自动带过来。'));
+      if (!images.length) {
+        m.appendChild(el('p', null,
+          '现在一张图片素材都没有。先去「素材」页上传立绘（透明背景的 PNG 最好）。'));
+      }
+      var go = btn('wy-menu-item', '去建角色 →');
+      go.addEventListener('click', function () {
+        d.remove();
+        self.close();
+        if (root.WYEditor) {
+          if (root.WYEditor.closeAllSheets) root.WYEditor.closeAllSheets();
+          if (root.WYEditor.setTab) root.WYEditor.setTab('chars');
+        }
+      });
+      m.appendChild(go);
+      var cancel = btn('wy-menu-item', '先算了');
+      cancel.addEventListener('click', function () { d.remove(); });
+      m.appendChild(cancel);
+      this.sheet.appendChild(d);
+      return;
+    }
+
+    m.appendChild(el('h3', null, '选一个角色上场'));
+    var list = el('div', 'wy-charpick');
+    chars.forEach(function (ch) {
+      var row = btn('wy-charpick-row');
+      var thumb = el('div', 'th');
+      var sid = ch.sprite || (ch.faces[0] && ch.faces[0].img);
+      if (sid && p.assets[sid]) {
+        var im = el('img');
+        im.src = p.assets[sid].data;
+        im.alt = ch.name || '';
+        thumb.appendChild(im);
+      } else {
+        thumb.appendChild(el('span', 'none', '无图'));
+      }
+      row.appendChild(thumb);
+      var meta = el('div', 'mt');
+      meta.appendChild(el('b', null, ch.name || '（没起名字）'));
+      var fn = WY.characterFaceNames(ch);
+      meta.appendChild(el('span', null,
+        (ch.sprite ? '' : '⚠ 还没立绘 · ') + fn.length + ' 个表情（' + fn.join(' / ') + '）'));
+      row.appendChild(meta);
+      row.addEventListener('click', function () {
+        d.remove();
+        self.placeActor(ch.id);
+      });
+      list.appendChild(row);
+    });
+    m.appendChild(list);
+
+    var go2 = btn('wy-menu-item', '管理角色 / 新建 →');
+    go2.addEventListener('click', function () {
+      d.remove();
+      self.close();
+      if (root.WYEditor) {
+        if (root.WYEditor.closeAllSheets) root.WYEditor.closeAllSheets();
+        if (root.WYEditor.setTab) root.WYEditor.setTab('chars');
+      }
+    });
+    m.appendChild(go2);
+    var cancel2 = btn('wy-menu-item', '取消');
+    cancel2.addEventListener('click', function () { d.remove(); });
+    m.appendChild(cancel2);
+
+    this.sheet.appendChild(d);
   };
 
   function slider(label, value, min, max, step, onchange) {

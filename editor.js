@@ -117,6 +117,7 @@
     var bar = el('div', 'wy-tabbar');
     var tabs = [
       ['story', '📖', '剧情'],
+      ['chars', '🎭', '角色'],
       ['assets', '🖼', '素材'],
       ['vars', '🔢', '变量'],
       ['codex', '📚', '图鉴'],
@@ -190,9 +191,26 @@
 
   /* ---------------- 页签 ---------------- */
 
+  /**
+   * 关掉所有全屏浮层（场景编辑、舞台编辑器、弹窗）。
+   * 切页签时必须清一下，否则从舞台编辑器跳去「角色」页时，
+   * 场景浮层会压在新页面上，看着像「点了没反应」。
+   */
+  Editor.closeAllSheets = function () {
+    // 注意：场景浮层是挂在 document.body 上的（不是 #wy-layer），
+    // 只扫 layer 会漏掉它，切页签后就会有一层场景浮层压着新页面。
+    var roots = [document.body];
+    if (this.layer) roots.push(this.layer);
+    var sel = '.wy-sheet-full, .wy-modal-mask, .wy-help';
+    roots.forEach(function (r) {
+      Array.prototype.slice.call(r.querySelectorAll(sel)).forEach(function (e) { e.remove(); });
+    });
+  };
+
   Editor.setTab = function (tab, force) {
     if (this.tab === tab && !force) return;
     if (this.tab === 'play' && tab !== 'play') this.teardownPlayer();
+    this.closeAllSheets();
     this.tab = tab;
     Object.keys(this.tabBtns).forEach(function (k) {
       this.tabBtns[k].classList.toggle('on', k === tab);
@@ -206,6 +224,7 @@
     v.innerHTML = '';
     v.scrollTop = 0;
     if (this.tab === 'story') this.renderStory(v);
+    else if (this.tab === 'chars') this.renderChars(v);
     else if (this.tab === 'assets') this.renderAssets(v);
     else if (this.tab === 'vars') this.renderVars(v);
     else if (this.tab === 'codex') this.renderCodex(v);
@@ -445,14 +464,15 @@
       var chips = el('div', 'wy-row wrap');
       chips.style.marginTop = '-6px';
       st.actors.forEach(function (a) {
-        if (!a.name) return;
-        var c = btn('wy-btn-ghost', a.name);
+        var nm = WY.resolveActor(p, a).name;
+        if (!nm) return;
+        var c = btn('wy-btn-ghost', nm);
         c.style.cssText = 'font-size:13px;padding:6px 12px;';
         c.addEventListener('click', function () {
-          node.speaker = a.name;
-          spk.value = a.name;
+          node.speaker = nm;
+          spk.value = nm;
           self.save();
-          self.toast('这一场是「' + a.name + '」在说话');
+          self.toast('这一场是「' + nm + '」在说话');
         });
         chips.appendChild(c);
       });
@@ -764,7 +784,10 @@
     var wrap = el('div');
     var pairs = this.varPairs();
 
-    var actors = node ? ((WY.ensureStage(node).actors) || []).filter(function (a) { return a.name; }) : [];
+    // 用解析后的角色：v8 起名字存在角色定义里，场景里的 actor.name 是空的
+    var actors = node ? ((WY.ensureStage(node).actors) || [])
+      .map(function (a) { return WY.resolveActor(p, a); })
+      .filter(function (a) { return a.name; }) : [];
     var hasVars = pairs.length > 0;
     var hasActors = actors.length > 0;
 
@@ -798,7 +821,7 @@
             self.render();
           }));
           var act = WY.getActor(node, e.actorId);
-          var faceNames = WY.actorFaceNames(act);
+          var faceNames = WY.actorFaceNames(act, p);
           if (faceNames.length <= 1) {
             row.appendChild(el('span', 'wy-hint', '这个角色还没有表情差分'));
           } else {
@@ -845,6 +868,230 @@
   };
 
   /* ---------------- 素材 ---------------- */
+
+  /* ---------------- 角色 ---------------- */
+
+  /**
+   * 角色页：一个角色 = 名字 + 立绘 + 一堆表情差分。
+   *
+   * 以前这些东西是在每个场景里各填一遍的（同一角色 19 个场景 = 19 份），
+   * 现在收在这里统一定义，场景里只是「谁上场」的引用。
+   * 所以换个立绘、加个表情，所有用到他的场景一起变。
+   */
+  Editor.renderChars = function (v) {
+    var self = this;
+    var p = this.project;
+    var chars = WY.charactersOf(p);
+    var usage = WY.characterUsage(p);
+
+    var bar = el('div', 'wy-row wrap');
+    var add = btn('wy-btn primary', '＋ 新建角色');
+    add.addEventListener('click', function () {
+      var ch = WY.newCharacter({ name: '角色' + (chars.length + 1) });
+      chars.push(ch);
+      self.save(true);
+      self.render();
+      self.toast('建好了，接着给他选张立绘吧');
+    });
+    bar.appendChild(add);
+    if (chars.length) {
+      bar.appendChild(el('span', 'wy-hint',
+        '共 ' + chars.length + ' 个角色。在这里改，所有场景一起变。'));
+    }
+    v.appendChild(bar);
+
+    if (!chars.length) {
+      v.appendChild(el('div', 'wy-empty-box',
+        '还没有角色。\n\n点「＋ 新建角色」，给他起个名字、选一张立绘，' +
+        '再把这角色的各个表情（微笑 / 生气 / 害羞…）挂上去。\n\n' +
+        '之后在「演出」里加角色时，只要选他 —— 名字和立绘会自动填好，' +
+        '「换表情」效果里也能直接挑。'));
+      return;
+    }
+
+    var images = WY.assetList(p).filter(function (a) { return a.type === 'image'; });
+    var imgPairs = [['', '（还没有图片素材）']].concat(
+      images.map(function (a) { return [a.id, a.name]; }));
+
+    chars.forEach(function (ch, ci) {
+      var used = usage[ch.id] || { scenes: 0, actors: 0 };
+      var card = el('div', 'wy-charcard');
+
+      /* ---- 卡头：缩略图 + 名字 ---- */
+      var head = el('div', 'wy-charcard-head');
+      var thumb = el('div', 'wy-charthumb');
+      var sid = ch.sprite || (ch.faces[0] && ch.faces[0].img);
+      if (sid && p.assets[sid]) {
+        var tim = el('img');
+        tim.src = p.assets[sid].data;
+        tim.alt = ch.name || '';
+        thumb.appendChild(tim);
+      } else {
+        thumb.appendChild(el('span', 'none', '没立绘'));
+      }
+      head.appendChild(thumb);
+
+      var hmeta = el('div', 'wy-charmeta');
+      var nameIn = inp(ch.name, function (val) {
+        ch.name = val;
+        // 名字是角色定义的一部分，改一下所有场景跟着变；
+        // 这里只存盘不重绘，否则每敲一个字输入框都会失焦。
+        self.save();
+      }, '角色名，比如：阿萤');
+      hmeta.appendChild(nameIn);
+      hmeta.appendChild(el('div', 'wy-charcount',
+        used.scenes
+          ? ('在 ' + used.scenes + ' 个场景里上场过 ' + used.actors + ' 次')
+          : '还没在任何场景里上场'));
+      head.appendChild(hmeta);
+
+      var delC = btn('wy-x', '✕');
+      delC.title = '删掉这个角色';
+      delC.addEventListener('click', function () {
+        self.confirm('删掉角色「' + (ch.name || '未命名') + '」？',
+          used.scenes
+            ? ('他已经在 ' + used.scenes + ' 个场景里上场了，那些场景会失去这个角色，需要重新选人。')
+            : '还没有场景用到他。',
+          function () {
+            p.characters = chars.filter(function (x) { return x !== ch; });
+            // 场景里的引用一并清掉，免得留下指向空气的引用
+            p.nodes.forEach(function (n) {
+              ((n.stage && n.stage.actors) || []).forEach(function (a) {
+                if (a.character === ch.id) a.character = null;
+              });
+            });
+            self.save(true);
+            self.render();
+          });
+      });
+      head.appendChild(delC);
+      card.appendChild(head);
+
+      /* ---- 立绘 ---- */
+      var spriteField = field('立绘（默认表情）', sel(imgPairs, ch.sprite || '', function (val) {
+        ch.sprite = val || null;
+        self.save(true);
+        self.render();
+      }), images.length
+        ? '「默认」就是这个角色平时的样子。最好是透明背景的 PNG。'
+        : '还没有图片素材 —— 先去「素材」页上传。');
+      card.appendChild(spriteField);
+
+      /* ---- 表情差分 ---- */
+      var faceSec = el('div', 'wy-charfaces');
+      faceSec.appendChild(el('label', 'wy-label',
+        '表情差分（' + (ch.faces || []).length + ' 个）—— 剧情里用「换表情」切脸，不用重新画整张立绘'));
+
+      var grid = el('div', 'wy-facegrid');
+      (ch.faces || []).forEach(function (fc, fi) {
+        var cell = el('div', 'wy-facecell');
+        if (fc.img && p.assets[fc.img]) {
+          var cim = el('img');
+          cim.src = p.assets[fc.img].data;
+          cim.alt = fc.name || '';
+          cell.appendChild(cim);
+        } else {
+          cell.appendChild(el('div', 'wy-facecell-none', '没选图'));
+        }
+        cell.appendChild(el('div', 'wy-facecell-name', fc.name || '未命名'));
+        var fx = btn('wy-asset-del', '✕');
+        fx.addEventListener('click', function () {
+          ch.faces.splice(fi, 1);
+          self.save(true);
+          self.render();
+        });
+        cell.appendChild(fx);
+        cell.addEventListener('click', function (e) {
+          if (e.target === fx) return;
+          self.openCharFace(ch, fi);
+        });
+        grid.appendChild(cell);
+      });
+
+      var addFace = btn('wy-facecell wy-faceadd', '＋\n加表情');
+      addFace.addEventListener('click', function () {
+        ch.faces = ch.faces || [];
+        ch.faces.push(WY.newFace({
+          name: '表情' + (ch.faces.length + 1),
+          img: images[0] ? images[0].id : null
+        }));
+        self.save(true);
+        self.openCharFace(ch, ch.faces.length - 1);
+      });
+      grid.appendChild(addFace);
+      faceSec.appendChild(grid);
+      card.appendChild(faceSec);
+
+      card.appendChild(el('div', 'wy-hint',
+        '点任意一张表情可以改名字或换图。'));
+      v.appendChild(card);
+    });
+  };
+
+  /** 编辑一个表情：名字 + 用哪张图，都带实时预览 */
+  Editor.openCharFace = function (ch, fi) {
+    var self = this;
+    var p = this.project;
+    var fc = (ch.faces || [])[fi];
+    if (!fc) return;
+
+    var images = WY.assetList(p).filter(function (a) { return a.type === 'image'; });
+    var imgPairs = [['', '（不选图）']].concat(
+      images.map(function (a) { return [a.id, a.name]; }));
+
+    var mask = el('div', 'wy-modal-mask');
+    var m = el('div', 'wy-modal');
+    mask.appendChild(m);
+    m.appendChild(el('h3', null, '表情：' + (ch.name || '未命名角色')));
+
+    var prev = el('div', 'wy-facepreview');
+    var pim = el('img');
+    var refresh = function () {
+      if (fc.img && p.assets[fc.img]) {
+        pim.src = p.assets[fc.img].data;
+        pim.style.display = '';
+        prev.classList.remove('empty');
+      } else {
+        pim.removeAttribute('src');
+        pim.style.display = 'none';
+        prev.classList.add('empty');
+        prev.textContent = '还没选图';
+      }
+    };
+    prev.appendChild(pim);
+    refresh();
+    m.appendChild(prev);
+
+    m.appendChild(field('表情名', inp(fc.name, function (val) {
+      fc.name = val;
+      self.save();
+    }, '微笑 / 生气 / 害羞 / 惊讶…'), '这个名字就是「换表情」效果里选的那个。'));
+
+    m.appendChild(field('用哪张图', sel(imgPairs, fc.img || '', function (val) {
+      fc.img = val || null;
+      refresh();
+      self.save(true);
+      self.render();
+    })));
+
+    var ok = btn('wy-menu-item', '完成');
+    ok.addEventListener('click', function () {
+      mask.remove();
+      self.save(true);
+      self.render();
+    });
+    m.appendChild(ok);
+    var rm = btn('wy-menu-item', '删掉这个表情');
+    rm.addEventListener('click', function () {
+      ch.faces.splice(fi, 1);
+      mask.remove();
+      self.save(true);
+      self.render();
+    });
+    m.appendChild(rm);
+
+    this.layer.appendChild(mask);
+  };
 
   Editor.renderAssets = function (v) {
     var self = this;
@@ -1583,6 +1830,44 @@
       function (val) { ui.skinFit = val; self.save(true); self.render(); }
     ), '九宫格保四角，适合带边框的图；拉伸适合纹理和渐变。'));
 
+    // ---- 装饰风格 ----
+    v.appendChild(section('装饰风格'));
+    v.appendChild(field('想要哪种界面', sel(
+      WY.ORNAMENTS.map(function (o) { return [o.id, o.label]; }),
+      ui.ornament || 'rune',
+      function (val) { ui.ornament = val; self.save(true); self.render(); }
+    ), '「异次元」是内置的金线描边 + 角饰 + 辉光 + 转场，纯 CSS 画的，不占体积。' +
+       '想走干净路线就选「朴素」，或干脆在下面「界面素材」里整套换成自己的图。'));
+
+    // ---- 尺寸（全部可调）----
+    v.appendChild(section('尺寸（想调多大就调多大）'));
+    v.appendChild(el('div', 'wy-hint',
+      '下面每一项都能单独调。标着「默认」的表示还没动过 —— 拖着滑杆就生效，' +
+      '点上面的「▶ 去试玩看看样子」能立刻看到实际效果。'));
+    WY.SIZE_FIELDS.forEach(function (sf) {
+      var parts = sf.key.split('.');
+      var cur = WY.getPath(ui, sf.key);
+      var zero = sf.def === 0 ? '默认' : null;
+      v.appendChild(field(sf.label + '（' + sf.min + '–' + sf.max + 'px）',
+        self.rangeInput(cur, sf.min, sf.max, function (val) {
+          ui[parts[0]][parts[1]] = val;
+          // 只存盘不重绘：拖动时要保持滑杆焦点，不然拖一下就断
+          self.save();
+        }, { zeroLabel: zero, def: sf.def }),
+        sf.def === 0 ? '「默认」= 跟着整体走，不做特别指定。' : ''));
+    });
+    var resetSz = btn('wy-btn-ghost', '尺寸全部恢复默认');
+    resetSz.addEventListener('click', function () {
+      WY.SIZE_FIELDS.forEach(function (sf) {
+        var parts = sf.key.split('.');
+        ui[parts[0]][parts[1]] = sf.def;
+      });
+      self.save(true);
+      self.render();
+      self.toast('尺寸已恢复默认');
+    });
+    v.appendChild(resetSz);
+
     // ---- 选项的样子 ----
     var ch = ui.choice;
     v.appendChild(section('选项的样子'));
@@ -1677,16 +1962,38 @@
     return wrap;
   };
 
-  Editor.rangeInput = function (value, min, max, onchange) {
+  /**
+   * 一行滑杆。
+   * opts: { step, unit, zeroLabel, def }
+   *
+   * 坑：原来是 value || 18 —— 0 是合法值（尺寸类字段里 0 = 跟随默认），
+   * 会被 || 吃成 18，于是「默认」永远显示成 18px。
+   */
+  Editor.rangeInput = function (value, min, max, onchange, opts) {
+    opts = opts || {};
+    var step = opts.step || 1;
+    var unit = opts.unit === undefined ? 'px' : opts.unit;
     var wrap = el('div', 'wy-row');
     var r = el('input');
     r.type = 'range';
-    r.min = String(min); r.max = String(max); r.step = '1';
-    r.value = String(value || 18);
+    r.min = String(min); r.max = String(max); r.step = String(step);
+    var n0 = Number(value);
+    var v0 = (value === null || value === undefined || value === '' || isNaN(n0))
+      ? min : Math.max(min, Math.min(max, n0));
+    r.value = String(v0);
     r.style.cssText = 'flex:1;accent-color:var(--accent);';
-    var out = el('span', null, r.value + 'px');
-    out.style.cssText = 'width:48px;text-align:right;color:var(--dim);font-size:13px;';
-    r.addEventListener('input', function () { out.textContent = r.value + 'px'; onchange(Number(r.value)); });
+    var out = el('span', null, '');
+    out.style.cssText = 'width:72px;text-align:right;color:var(--dim);font-size:13px;';
+    var show = function (v) {
+      // 对「0 = 跟随默认」的字段，显示「默认」比显示 0px 好懂
+      out.textContent = (v === 0 && opts.zeroLabel) ? opts.zeroLabel : (v + unit);
+    };
+    show(v0);
+    r.addEventListener('input', function () {
+      var v = Number(r.value);
+      show(v);
+      onchange(v);
+    });
     wrap.appendChild(r);
     wrap.appendChild(out);
     return wrap;

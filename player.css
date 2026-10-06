@@ -118,11 +118,11 @@
   background: color-mix(in srgb, var(--wy-fg, #fff) 11%, transparent);
   border: 1px solid color-mix(in srgb, var(--wy-fg, #fff) 8%, transparent);
 }
-.wy-chip b { color: var(--wy-accent, #5aa9ff); font-weight: 600; }
+.wy-chip b { color: var(--wy-accent, #a78bfa); font-weight: 600; }
 .wy-chip.wy-flash { animation: wy-pop .5s ease; }
 @keyframes wy-pop {
   0% { transform: scale(1); }
-  40% { transform: scale(1.22); background: color-mix(in srgb, var(--wy-accent, #5aa9ff) 35%, transparent); }
+  40% { transform: scale(1.22); background: color-mix(in srgb, var(--wy-accent, #a78bfa) 35%, transparent); }
   100% { transform: scale(1); }
 }
 
@@ -147,7 +147,8 @@
   max-height: var(--wy-box-max, 40%);   /* 长台词不顶上去挡立绘，超出在框里滚 */
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px 18px;
+  /* 尺寸：0px = 用内置默认值（CSS 变量的兜底），作者调了就按作者的来 */
+  padding: calc(16px + var(--wy-box-pady, 0px)) calc(18px + var(--wy-box-padx, 0px));
   border-radius: 14px;
   background: color-mix(in srgb, var(--wy-bg, #0f1115) 72%, transparent);
   border: 1px solid color-mix(in srgb, var(--wy-fg, #fff) 10%, transparent);
@@ -158,13 +159,18 @@
   min-height: 3em;
 }
 
+/* 字号：只有作者真的指定了（>0）才加 wy-xxxfs-on。
+   绝不能写成 font-size: var(--wy-box-fs, ...) —— 变量为 0px 时文字会直接消失。 */
+.wy-player.wy-boxfs-on .wy-textbox { font-size: var(--wy-box-fs); }
+.wy-player.wy-choicefs-on .wy-choice { font-size: var(--wy-choice-fs); }
+
 .wy-caret {
   display: inline-block;
   width: .55em;
   height: 1em;
   margin-left: 2px;
   vertical-align: -.13em;
-  background: var(--wy-accent, #5aa9ff);
+  background: var(--wy-accent, #a78bfa);
   animation: wy-blink 1s steps(1) infinite;
 }
 @keyframes wy-blink { 50% { opacity: 0; } }
@@ -185,8 +191,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 9px;
-  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  gap: var(--wy-choice-gap, 9px);
+  padding: 0 var(--wy-choice-inset, 16px) calc(env(safe-area-inset-bottom, 0px) + 16px);
   margin-top: 14px;
   z-index: 6;
 }
@@ -217,6 +223,16 @@
 }
 .wy-player.wy-ch-bottom .wy-main { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
 
+/* 设了「最小高度」才启用竖向居中 —— 不设的时候保持原来的行内排版，
+   免得带「▸」前缀和左对齐的多行选项被 flex 拆成两块。 */
+.wy-player.wy-choiceminh-on .wy-choice {
+  display: flex;
+  align-items: center;
+}
+.wy-player.wy-choiceminh-on.wy-align-center-p .wy-choice { justify-content: center; }
+/* ▸ 前缀和正文在 flex 下是两个盒子，居中时要当成一整行看待 */
+.wy-player.wy-choiceminh-on .wy-choice::before { flex: none; }
+
 /* ---- 选项形状 ---- */
 .wy-player.wy-shape-card .wy-choice {
   border-radius: 16px;
@@ -244,7 +260,9 @@
   display: block;
   width: 100%;
   text-align: left;
-  padding: 14px 16px;
+  /* 形状类（card/plain）会覆盖 padding，那是形状自带的比例，优先级更高 */
+  padding: calc(14px + var(--wy-choice-pady, 0px)) calc(16px + var(--wy-choice-padx, 0px));
+  min-height: var(--wy-choice-minh, 0px);
   border-radius: 12px;
   font-size: 1em;
   line-height: 1.55;
@@ -265,11 +283,11 @@
 }
 .wy-choice:active {
   transform: scale(.985);
-  background-color: color-mix(in srgb, var(--wy-accent, #5aa9ff) 26%, transparent);
+  background-color: color-mix(in srgb, var(--wy-accent, #a78bfa) 26%, transparent);
 }
 .wy-choice::before {
   content: "▸ ";
-  color: var(--wy-accent, #5aa9ff);
+  color: var(--wy-accent, #a78bfa);
   opacity: .85;
 }
 @keyframes wy-rise {
@@ -284,15 +302,15 @@
   padding: 26px 20px;
   border-radius: 16px;
   background: color-mix(in srgb, var(--wy-bg, #0f1115) 86%, transparent);
-  border: 1px solid color-mix(in srgb, var(--wy-accent, #5aa9ff) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wy-accent, #a78bfa) 40%, transparent);
   animation: wy-rise .45s ease backwards;
 }
 .wy-ending-tag {
   display: inline-block;
   font-size: 12px;
   letter-spacing: 3px;
-  color: var(--wy-accent, #5aa9ff);
-  border: 1px solid color-mix(in srgb, var(--wy-accent, #5aa9ff) 50%, transparent);
+  color: var(--wy-accent, #a78bfa);
+  border: 1px solid color-mix(in srgb, var(--wy-accent, #a78bfa) 50%, transparent);
   border-radius: 999px;
   padding: 3px 12px;
   margin-bottom: 12px;
@@ -322,8 +340,8 @@
 }
 .wy-btn:active { background: color-mix(in srgb, var(--wy-fg, #fff) 20%, transparent); }
 .wy-btn.wy-primary {
-  background: var(--wy-accent, #5aa9ff);
-  border-color: var(--wy-accent, #5aa9ff);
+  background: var(--wy-accent, #a78bfa);
+  border-color: var(--wy-accent, #a78bfa);
   color: #08111c;
   font-weight: 600;
 }
@@ -388,14 +406,14 @@
 }
 .wy-range {
   width: 100%;
-  accent-color: var(--wy-accent, #5aa9ff);
+  accent-color: var(--wy-accent, #a78bfa);
   height: 26px;
 }
 .wy-seg { display: flex; gap: 8px; }
 .wy-seg .wy-btn { flex: 1; padding: 9px 8px; font-size: 14px; }
 .wy-seg .wy-btn.on {
-  background: var(--wy-accent, #5aa9ff);
-  border-color: var(--wy-accent, #5aa9ff);
+  background: var(--wy-accent, #a78bfa);
+  border-color: var(--wy-accent, #a78bfa);
   color: #08111c;
   font-weight: 600;
 }
@@ -504,7 +522,7 @@
   left: 14px;
   padding: 2px 16px 3px;
   border-radius: 9px;
-  background: var(--wy-accent, #5aa9ff);
+  background: var(--wy-accent, #a78bfa);
   color: #08111c;
   font-size: 14px;
   font-weight: 700;
@@ -589,7 +607,7 @@
 }
 .wy-status-row:last-child { border-bottom: none; }
 .wy-status-row .k { flex: 1; opacity: .8; font-size: 14px; }
-.wy-status-row .v { color: var(--wy-accent, #5aa9ff); font-size: 17px; font-variant-numeric: tabular-nums; }
+.wy-status-row .v { color: var(--wy-accent, #a78bfa); font-size: 17px; font-variant-numeric: tabular-nums; }
 
 /* ---- 列表型分组：条目卡片 ---- */
 .wy-codex-list { display: flex; flex-direction: column; gap: 12px; }
@@ -633,10 +651,10 @@
   border-radius: 999px;
   font-size: 12px;
   line-height: 1.7;
-  background: color-mix(in srgb, var(--wy-accent, #5aa9ff) 16%, transparent);
+  background: color-mix(in srgb, var(--wy-accent, #a78bfa) 16%, transparent);
 }
 .wy-cv span { opacity: .78; }
-.wy-cv b { color: var(--wy-accent, #5aa9ff); font-weight: 700; font-variant-numeric: tabular-nums; }
+.wy-cv b { color: var(--wy-accent, #a78bfa); font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* ---- 存档界面 ---- */
 .wy-save-list { display: flex; flex-direction: column; gap: 11px; }
@@ -650,7 +668,7 @@
   background: color-mix(in srgb, var(--wy-fg, #fff) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--wy-fg, #fff) 10%, transparent);
 }
-.wy-save-slot.wy-slot-auto { border-color: color-mix(in srgb, var(--wy-accent, #5aa9ff) 34%, transparent); }
+.wy-save-slot.wy-slot-auto { border-color: color-mix(in srgb, var(--wy-accent, #a78bfa) 34%, transparent); }
 .wy-save-slot.wy-slot-empty { opacity: .62; }
 
 .wy-save-thumb {
@@ -938,16 +956,52 @@
   padding: 4px 6px;
 }
 
-.wy-player.wy-skin-panel .wy-sheet-body,
-.wy-player.wy-skin-panel .wy-screen-body > * {
-  background-image: none;
+/* 整页背景：图鉴 / 背包 / 存档 / 菜单 全都铺创作者自己的底图 */
+.wy-player.wy-skin-page .wy-screen,
+.wy-player.wy-skin-page .wy-sheet-body {
+  background-image: var(--wy-skin-page);
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-color: color-mix(in srgb, var(--wy-bg, #0f1115) 66%, transparent);
 }
-.wy-player.wy-skin-panel .wy-sheet-body {
-  border-image: var(--wy-skin-panel) 26% fill / 1 / 0 stretch;
+
+/* 页面标题栏 */
+.wy-player.wy-skin-header .wy-screen-head,
+.wy-player.wy-skin-header .wy-sheet-title {
+  border-image: var(--wy-skin-header) 26% fill / 1 / 0 stretch;
   border-style: solid;
-  border-width: 16px 18px;
+  border-width: 10px 16px;
   border-color: transparent;
   background-color: transparent;
+  background-image: none;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .7);
+}
+.wy-player.wy-skin-header .wy-screen-title small { text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+
+/* 各种按钮：菜单项、存读档按钮、返回 / 关闭键 */
+.wy-player.wy-skin-button .wy-btn,
+.wy-player.wy-skin-button .wy-menu-item,
+.wy-player.wy-skin-button .wy-save-acts .wy-btn {
+  border-image: var(--wy-skin-button) 26% fill / 1 / 0 stretch;
+  border-style: solid;
+  border-width: 10px 14px;
+  border-color: transparent;
+  background-color: transparent;
+  background-image: none;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .7);
+}
+.wy-player.wy-skin-button .wy-ibtn {
+  border-image: var(--wy-skin-button) 26% fill / 1 / 0 stretch;
+  border-style: solid;
+  border-width: 9px;
+  border-color: transparent;
+  background-color: transparent;
+  background-image: none;
+}
+/* 主按钮（存 / 读 / 再玩一次）还是要看得出主次 */
+.wy-player.wy-skin-button .wy-btn.wy-primary {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--wy-accent, #a78bfa) 60%, transparent));
 }
 
 /* ============================================================
@@ -1001,3 +1055,216 @@
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.16); }
 }
+
+/* ============================================================
+ * 异次元装饰层（ornament = rune）
+ *
+ * 全部用 CSS 画：金线、角饰、辉光、符文分隔线、转场。
+ * 不加一张图 —— 导出的单文件游戏体积一个字节都不会涨。
+ * 作者在「设置 → 装饰风格」里可以整个关掉，换回朴素界面。
+ * ============================================================ */
+
+.wy-player {
+  /* 兜底：不支持 color-mix() 的浏览器用这套固定金 / 紫色，
+     描边和辉光都得有着落，否则 border-color 会变成 currentColor 糊成一片。 */
+  --wy-gold: #d9c08a;
+  --wy-edge: rgba(217, 192, 138, .34);
+  --wy-glow: rgba(167, 139, 250, .34);
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  .wy-player {
+    /* 金色描边：跟着强调色走，但偏金一点，避免和强调色打架 */
+    --wy-gold: color-mix(in srgb, var(--wy-accent, #a78bfa) 34%, #d9c08a);
+    --wy-edge: color-mix(in srgb, var(--wy-gold) 46%, transparent);
+    --wy-glow: color-mix(in srgb, var(--wy-accent, #a78bfa) 34%, transparent);
+  }
+}
+
+/* ---------- 氛围：画面四角的柔光，让纯色背景也有纵深 ---------- */
+.wy-player.wy-orn-rune::before,
+.wy-player.wy-orn-rune::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 50%;
+  opacity: .5;
+}
+.wy-player.wy-orn-rune::before {
+  width: 78%; height: 42%;
+  left: -24%; top: -14%;
+  background: radial-gradient(circle, var(--wy-glow) 0%, transparent 68%);
+}
+.wy-player.wy-orn-rune::after {
+  width: 86%; height: 46%;
+  right: -28%; bottom: -16%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--wy-accent, #a78bfa) 20%, transparent) 0%, transparent 70%);
+}
+/* 立绘和对话框必须在氛围光之上 */
+.wy-player.wy-orn-rune .wy-stage,
+.wy-player.wy-orn-rune .wy-bubbles { position: relative; z-index: 3; }
+
+/* ---------- 对话框：金线 + 角饰 + 外辉光 ---------- */
+.wy-player.wy-orn-rune .wy-textbox {
+  border: 1px solid var(--wy-edge);
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--wy-accent, #a78bfa) 8%, transparent) 0%,
+      transparent 42%),
+    color-mix(in srgb, var(--wy-bg, #0f1115) 80%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--wy-bg, #0f1115) 60%, transparent) inset,
+    0 -10px 34px -14px var(--wy-glow),
+    0 12px 34px -14px rgba(0, 0, 0, .7);
+}
+/* 左上 / 右下两个角饰（L 形金线） */
+.wy-player.wy-orn-rune .wy-textbox::before,
+.wy-player.wy-orn-rune .wy-textbox::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  border: 0 solid var(--wy-gold);
+  opacity: .8;
+}
+.wy-player.wy-orn-rune .wy-textbox::before {
+  top: 5px; left: 5px;
+  border-top-width: 2px; border-left-width: 2px;
+  border-top-left-radius: 7px;
+}
+.wy-player.wy-orn-rune .wy-textbox::after {
+  bottom: 5px; right: 5px;
+  border-bottom-width: 2px; border-right-width: 2px;
+  border-bottom-right-radius: 7px;
+}
+
+/* ---------- 名牌：斜切的金色符牌，而不是一块纯色圆角 ---------- */
+.wy-player.wy-orn-rune .wy-namebar {
+  background: linear-gradient(135deg,
+    var(--wy-gold) 0%,
+    color-mix(in srgb, var(--wy-accent, #a78bfa) 70%, var(--wy-gold)) 100%);
+  color: color-mix(in srgb, var(--wy-bg, #0f1115) 88%, #000);
+  border: 1px solid color-mix(in srgb, #fff 30%, transparent);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, .5),
+    0 0 18px -4px var(--wy-glow);
+  letter-spacing: 1.2px;
+}
+
+/* ---------- 选项：符文石板 ---------- */
+.wy-player.wy-orn-rune .wy-choice {
+  position: relative;
+  border: 1px solid var(--wy-edge);
+  background-color: color-mix(in srgb, var(--wy-fg, #fff) 7%, transparent);
+  background-image:
+    linear-gradient(100deg,
+      color-mix(in srgb, var(--wy-accent, #a78bfa) 14%, transparent) 0%,
+      transparent 58%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--wy-bg, #0f1115) 55%, transparent) inset,
+    0 4px 16px -8px rgba(0, 0, 0, .8);
+  transition: transform .14s cubic-bezier(.2, .8, .3, 1),
+              background-color .18s, box-shadow .18s, border-color .18s;
+}
+/* 左侧一道竖着的金色符文条 */
+.wy-player.wy-orn-rune .wy-choice::after {
+  content: "";
+  position: absolute;
+  left: 0; top: 18%;
+  width: 2px; height: 64%;
+  border-radius: 2px;
+  background-image: linear-gradient(180deg, transparent, var(--wy-gold), transparent);
+  opacity: .75;
+  pointer-events: none;
+}
+.wy-player.wy-orn-rune .wy-choice:active {
+  transform: scale(.984);
+  border-color: color-mix(in srgb, var(--wy-gold) 80%, transparent);
+  background-color: color-mix(in srgb, var(--wy-accent, #a78bfa) 24%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--wy-bg, #0f1115) 45%, transparent) inset,
+    0 0 26px -6px var(--wy-glow);
+}
+/* 有选项框素材时别叠金线，作者自己的边框才是主角 */
+.wy-player.wy-orn-rune.wy-choicebg-img .wy-choice { border-color: transparent; }
+.wy-player.wy-orn-rune.wy-choicebg-img .wy-choice::after { opacity: .3; }
+/* 纯文字形状本来就没有底，别给它描边 */
+.wy-player.wy-orn-rune.wy-shape-plain .wy-choice {
+  border: none;
+  background-image: none;
+  box-shadow: none;
+}
+.wy-player.wy-orn-rune.wy-shape-plain .wy-choice::after { display: none; }
+
+/* ---------- 按钮：描金小符牌 ---------- */
+.wy-player.wy-orn-rune .wy-btn {
+  border: 1px solid var(--wy-edge);
+  background-color: color-mix(in srgb, var(--wy-fg, #fff) 9%, transparent);
+  background-image: linear-gradient(180deg,
+    color-mix(in srgb, var(--wy-accent, #a78bfa) 12%, transparent), transparent);
+  transition: transform .12s ease, box-shadow .18s, border-color .18s;
+}
+.wy-player.wy-orn-rune .wy-btn:active {
+  transform: scale(.97);
+  border-color: color-mix(in srgb, var(--wy-gold) 75%, transparent);
+  box-shadow: 0 0 20px -6px var(--wy-glow);
+}
+.wy-player.wy-orn-rune .wy-btn.wy-primary {
+  background-image: linear-gradient(135deg,
+    var(--wy-accent, #a78bfa),
+    color-mix(in srgb, var(--wy-accent, #a78bfa) 55%, var(--wy-gold)));
+  border-color: color-mix(in srgb, #fff 26%, transparent);
+  box-shadow: 0 4px 18px -6px var(--wy-glow);
+}
+
+/* ---------- 整页界面：符文标题栏 + 进场转场 ---------- */
+.wy-player.wy-orn-rune .wy-screen {
+  background:
+    radial-gradient(120% 60% at 50% -10%, var(--wy-glow) 0%, transparent 60%),
+    var(--wy-bg, #0f1115);
+  animation: wy-rune-in .3s cubic-bezier(.2, .85, .3, 1);
+}
+@keyframes wy-rune-in {
+  from { opacity: 0; transform: scale(1.015) translateY(1.5%); filter: blur(3px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.wy-player.wy-orn-rune .wy-screen-head {
+  border-bottom: 1px solid var(--wy-edge);
+  box-shadow: 0 8px 22px -18px var(--wy-glow);
+}
+/* 标题两侧各一小段金色菱形分隔线 */
+.wy-player.wy-orn-rune .wy-screen-title::before,
+.wy-player.wy-orn-rune .wy-screen-title::after {
+  content: "◆";
+  font-size: 8px;
+  vertical-align: 3px;
+  color: var(--wy-gold);
+  opacity: .8;
+}
+.wy-player.wy-orn-rune .wy-screen-title::before { margin-right: 9px; }
+.wy-player.wy-orn-rune .wy-screen-title::after { margin-left: 9px; }
+
+/* 图鉴卡片 / 存档格：细金边 + 内辉光 */
+.wy-player.wy-orn-rune .wy-codex-card,
+.wy-player.wy-orn-rune .wy-save-slot {
+  border-color: var(--wy-edge);
+  box-shadow: 0 6px 20px -14px var(--wy-glow);
+}
+
+/* ---------- 选项逐个浮现，而不是一起冒出来 ---------- */
+.wy-player.wy-orn-rune .wy-choice:nth-child(1) { animation-delay: .02s; }
+.wy-player.wy-orn-rune .wy-choice:nth-child(2) { animation-delay: .07s; }
+.wy-player.wy-orn-rune .wy-choice:nth-child(3) { animation-delay: .12s; }
+.wy-player.wy-orn-rune .wy-choice:nth-child(4) { animation-delay: .17s; }
+.wy-player.wy-orn-rune .wy-choice:nth-child(5) { animation-delay: .22s; }
+.wy-player.wy-orn-rune .wy-choice:nth-child(6) { animation-delay: .27s; }
+.wy-player.wy-orn-rune .wy-choice:nth-child(n+7) { animation-delay: .3s; }
+
+/* ---------- 关掉装饰后：确认没有任何残留 ---------- */
+.wy-player.wy-orn-none .wy-textbox,
+.wy-player.wy-orn-none .wy-choice,
+.wy-player.wy-orn-none .wy-btn { }
+.wy-player.wy-orn-none::before,
+.wy-player.wy-orn-none::after { display: none; }

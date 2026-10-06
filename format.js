@@ -11,7 +11,7 @@
   'use strict';
 
   var FORMAT = 'wenyu';
-  var VERSION = 7;
+  var VERSION = 8;
   var FILE_EXT = '.wy';
 
   var VAR_TYPES = ['number', 'string', 'bool'];
@@ -125,9 +125,11 @@
         startNode: start.id,
         vars: [newVar({ key: '好感度', type: 'number', initial: 0, display: 'codex' })],
         theme: {
-          bg: '#0f1115',
-          fg: '#e9edf2',
-          accent: '#5aa9ff',
+          // 默认就是「异次元」那套：深空紫底 + 青紫强调色，
+          // 配合 player.css 的金线辉光层，新工程开箱即有质感。
+          bg: '#0a0916',
+          fg: '#ece9ff',
+          accent: '#a78bfa',
           fontSize: 18,
           font: ''
         },
@@ -138,6 +140,7 @@
         groups: [newCodexGroup({ name: '状态', icon: '📊', kind: 'status', order: 0 })],
         entries: []
       },
+      characters: [],
       assets: {},
       nodes: [start]
     }, over);
@@ -296,9 +299,11 @@
   var SKIN_SLOTS = [
     { id: 'box', label: '对话框底图', hint: '对话框那一整条的底图' },
     { id: 'name', label: '说话人名牌' },
-    { id: 'codex', label: '图鉴卡片底' },
-    { id: 'save', label: '存档格底' },
-    { id: 'panel', label: '菜单 / 设置面板底' }
+    { id: 'page', label: '整页背景', hint: '图鉴 / 背包 / 存档 / 菜单 的整页底图' },
+    { id: 'header', label: '页面标题栏', hint: '图鉴、存档那些页面的顶栏' },
+    { id: 'button', label: '各种按钮', hint: '菜单项、存读档按钮、返回/关闭键' },
+    { id: 'codex', label: '图鉴卡片底', hint: '人物卡、道具卡的底板' },
+    { id: 'save', label: '存档格底' }
   ];
 
   var SKIN_FITS = [
@@ -306,10 +311,48 @@
     { id: 'stretch', label: '拉伸铺满（适合纹理 / 渐变）' }
   ];
 
+  /** 装饰风格：异次元那类轻小说界面的花边、金线、辉光，可以关掉换回朴素 */
+  var ORNAMENTS = [
+    { id: 'rune', label: '异次元（金线描边 + 辉光 + 角饰）' },
+    { id: 'none', label: '朴素（干净无装饰）' }
+  ];
+
+  /**
+   * 界面尺寸的可调项。
+   * 值为 0 表示「跟随默认」，这样作者不碰就是原样，改了就逐项生效。
+   */
+  var SIZE_FIELDS = [
+    { key: 'box.fontSize', label: '对话框字号', min: 0, max: 40, def: 0 },
+    { key: 'box.padX', label: '对话框左右留白', min: 0, max: 60, def: 0 },
+    { key: 'box.padY', label: '对话框上下留白', min: 0, max: 48, def: 0 },
+    { key: 'choice.fontSize', label: '选项字号', min: 0, max: 40, def: 0 },
+    { key: 'choice.padX', label: '选项左右内边距', min: 0, max: 60, def: 0 },
+    { key: 'choice.padY', label: '选项上下内边距', min: 0, max: 40, def: 0 },
+    { key: 'choice.gap', label: '选项之间的间隔', min: 0, max: 40, def: 9 },
+    { key: 'choice.minH', label: '选项最小高度', min: 0, max: 120, def: 0 },
+    { key: 'choice.inset', label: '选项左右离屏幕边缘', min: 0, max: 60, def: 16 }
+  ];
+
   var BOX_STYLES = [
     { id: 'band', label: '贴边整条（贴着画面最底下）' },
     { id: 'card', label: '悬浮圆角卡片' }
   ];
+
+  function getPath(obj, path) {
+    var cur = obj;
+    var parts = String(path).split('.');
+    for (var i = 0; i < parts.length; i++) {
+      if (!cur || typeof cur !== 'object') return undefined;
+      cur = cur[parts[i]];
+    }
+    return cur;
+  }
+
+  function clampNum(v, min, max, def) {
+    var n = Number(v);
+    if (v === null || v === '' || !isFinite(n)) return def;
+    return Math.max(min, Math.min(max, n));
+  }
 
   function defaultUI() {
     return {
@@ -318,9 +361,11 @@
       fontScale: 1,
       // 对话框：钉在画面最底部，并限制最高占多少（超出在框内滚动），
       // 这样长台词也不会一路顶上去把立绘挡住
-      box: { maxHeight: 40, style: 'band' },
+      box: { maxHeight: 40, style: 'band', fontSize: 0, padX: 0, padY: 0 },
+      // 装饰：异次元那类界面（金线 + 辉光 + 角饰），可以关掉
+      ornament: 'rune',
       // 界面素材：留空就用内置样式；填了就整套换成作者自己的图
-      skins: { box: null, name: null, codex: null, save: null, panel: null },
+      skins: { box: null, name: null, page: null, header: null, button: null, codex: null, save: null },
       skinFit: 'slice',
       orientation: 'portrait',      // portrait | landscape | auto
       choice: {
@@ -331,7 +376,14 @@
         bg: null,
         bgFit: 'slice',             // 选项框素材怎么铺：slice 九宫格 / stretch 拉伸
         x: 0.5,                     // 自由摆放时选项块的中心位置（归一化）
-        y: 0.62
+        y: 0.62,
+        // ---- 尺寸：0 = 跟随默认，改了才生效 ----
+        fontSize: 0,
+        padX: 0,
+        padY: 0,
+        minH: 0,
+        gap: 9,
+        inset: 16
       },
       saves: { slots: 3 }
     };
@@ -347,7 +399,14 @@
     ui.box = assign(d.box, ui.box || {});
     ui.box.maxHeight = Math.max(15, Math.min(80, typeof ui.box.maxHeight === 'number' ? ui.box.maxHeight : 40));
     if (['band', 'card'].indexOf(ui.box.style) < 0) ui.box.style = 'band';
-    ui.skins = assign({ box: null, name: null, codex: null, save: null, panel: null }, ui.skins || {});
+    // 尺寸项统一钳制，免得手改文件或老数据带出离谱的值
+    SIZE_FIELDS.forEach(function (f) {
+      var parts = f.key.split('.');
+      if (!ui[parts[0]]) ui[parts[0]] = {};
+      ui[parts[0]][parts[1]] = clampNum(ui[parts[0]][parts[1]], f.min, f.max, f.def);
+    });
+    if (ORNAMENTS.map(function (o) { return o.id; }).indexOf(ui.ornament) < 0) ui.ornament = 'rune';
+    ui.skins = assign({ box: null, name: null, page: null, header: null, button: null, codex: null, save: null }, ui.skins || {});
     if (['slice', 'stretch'].indexOf(ui.skinFit) < 0) ui.skinFit = 'slice';
     ui.choice = assign(d.choice, ui.choice || {});
     ui.choice.x = typeof ui.choice.x === 'number' ? ui.choice.x : 0.5;
@@ -454,12 +513,89 @@
   function newActor(over) {
     return assign({
       id: uid('ac'),
-      sprite: null,      // 「默认」那张立绘
-      faces: [],         // 表情差分：[{ id, name, img }]，name 为「微笑」「生气」这类
+      character: null,   // 指向 project.characters 里的一个角色（v8 起）
+      sprite: null,      // 老工程的内联立绘；有新角色后由角色定义提供
+      faces: [],         // 老工程的内联表情差分
       name: '',
       dim: true,
       z: 0
     }, over);
+  }
+
+  /* ---------------- 角色（v8 起的一等公民） ----------------
+   * 以前每个场景里的 actor 都把「名字 + 立绘 + 全部表情差分」各存一份，
+   * 同一个角色出现在 19 个场景里就有 19 份拷贝，改一次要改 19 处。
+   * 现在角色单独定义在 project.characters 里，场景里的 actor 只是一张
+   * 「谁上场」的引用（character: 角色 id），名字和立绘自动带过来。
+   * 老工程不迁移也能跑：没有 character 的 actor 还走内联字段。
+   * -------------------------------------------------------- */
+
+  function newCharacter(over) {
+    return assign({
+      id: uid('ch'),
+      name: '',
+      sprite: null,      // 「默认」那张立绘
+      faces: [],         // 表情差分：[{ id, name, img }]
+      color: ''          // 这个名字在对话里显示的颜色（可留空）
+    }, over);
+  }
+
+  function charactersOf(project) {
+    if (!project) return [];
+    if (!Array.isArray(project.characters)) project.characters = [];
+    return project.characters;
+  }
+
+  function findCharacter(project, id) {
+    if (!id) return null;
+    var list = charactersOf(project);
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  /** 按名字找角色（老工程迁移、以及「说话人」按名字回填时用） */
+  function findCharacterByName(project, name) {
+    if (!name) return null;
+    var list = charactersOf(project);
+    for (var i = 0; i < list.length; i++) if (list[i].name === name) return list[i];
+    return null;
+  }
+
+  /**
+   * 把一个上场角色解析成「真正该用的名字 + 立绘 + 表情表」。
+   * 有新角色就用角色的，没有（老工程 / 内联角色）就原样返回。
+   * 返回的是新对象，改它不会污染工程数据。
+   */
+  function resolveActor(project, actor) {
+    if (!actor) return actor;
+    var ch = actor.character ? findCharacter(project, actor.character) : null;
+    if (!ch) return actor;
+    return assign({}, actor, {
+      name: ch.name || actor.name || '',
+      sprite: ch.sprite || null,
+      faces: ch.faces || [],
+      character: ch.id
+    });
+  }
+
+  /** 一个角色在某表情下用的图（project 可省略，省略时按内联角色理解） */
+  function characterFaceImage(ch, faceName) {
+    if (!ch) return null;
+    var want = faceName == null ? '默认' : String(faceName);
+    if (!want || want === '默认') return ch.sprite || null;
+    var list = ch.faces || [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].name === want && list[i].img) return list[i].img;
+    }
+    return ch.sprite || null;
+  }
+
+  function characterFaceNames(ch) {
+    var out = ['默认'];
+    (ch && ch.faces ? ch.faces : []).forEach(function (fc) {
+      if (fc.name && out.indexOf(fc.name) < 0) out.push(fc.name);
+    });
+    return out;
   }
 
   var BUBBLE_ANIMS = [
@@ -501,30 +637,19 @@
     return assign({ id: uid('fc'), name: '表情', img: null }, over);
   }
 
-  /** 某个角色在指定表情下该用哪张图 */
-  function actorFaceImage(actor, faceName) {
-    if (!actor) return null;
-    var want = faceName == null ? '默认' : String(faceName);
-    if (!want || want === '默认') return actor.sprite || null;
-    var list = actor.faces || [];
-    for (var i = 0; i < list.length; i++) {
-      if (list[i].name === want && list[i].img) return list[i].img;
-    }
-    return actor.sprite || null;   // 表情没配图就退回默认
+  /** 某个角色在指定表情下该用哪张图（传 project 才会去角色定义里取） */
+  function actorFaceImage(actor, faceName, project) {
+    return characterFaceImage(project ? resolveActor(project, actor) : actor, faceName);
   }
 
   /** 这个角色能用的表情名（含默认） */
-  function actorFaceNames(actor) {
-    var out = ['默认'];
-    (actor && actor.faces ? actor.faces : []).forEach(function (fc) {
-      if (fc.name && out.indexOf(fc.name) < 0) out.push(fc.name);
-    });
-    return out;
+  function actorFaceNames(actor, project) {
+    return characterFaceNames(project ? resolveActor(project, actor) : actor);
   }
 
   /** 正在用某张脸的角色的缓存键 */
-  function actorImageKey(actor, faceName) {
-    return actor.id + '|' + actorFaceImage(actor, faceName);
+  function actorImageKey(actor, faceName, project) {
+    return actor.id + '|' + actorFaceImage(actor, faceName, project);
   }
 
   function newKey(over) {
@@ -771,6 +896,11 @@
         }
       }
     }
+    // 角色定义里的立绘和表情差分 —— 漏了「清理未使用素材」就会把角色的脸全删光
+    charactersOf(project).forEach(function (ch) {
+      if (ch.sprite) used[ch.sprite] = true;
+      (ch.faces || []).forEach(function (fc) { if (fc.img) used[fc.img] = true; });
+    });
     if (project && project.meta && project.meta.cover) used[project.meta.cover] = true;
 
     // 界面配置里引用的素材：字体、选项框
@@ -799,6 +929,21 @@
   }
 
   /* ---------------- 校验 ---------------- */
+
+  /** 每个角色被多少场景用过：{ 角色id: { scenes, actors } } */
+  function characterUsage(project) {
+    var out = {};
+    (project && project.nodes ? project.nodes : []).forEach(function (n) {
+      var seen = {};
+      ((n.stage && n.stage.actors) || []).forEach(function (a) {
+        if (!a.character) return;
+        var u = out[a.character] || (out[a.character] = { scenes: 0, actors: 0 });
+        u.actors++;
+        if (!seen[a.character]) { seen[a.character] = true; u.scenes++; }
+      });
+    });
+    return out;
+  }
 
   function validate(project) {
     var issues = [];
@@ -885,6 +1030,39 @@
         if (!e.name) issues.push({ level: 'warn', text: label + '：还没有名字。' });
       });
     }
+    // 角色定义
+    var chars = charactersOf(project);
+    chars.forEach(function (ch) {
+      var nm = ch.name || '（没名字的角色）';
+      if (!ch.name) issues.push({ level: 'warn', text: '有个角色还没起名字。' });
+      if (!ch.sprite) issues.push({ level: 'warn', text: nm + '：还没有立绘，上场时是空的。' });
+      else if (!(project.assets || {})[ch.sprite]) issues.push({ level: 'warn', text: nm + '：立绘已被删除。' });
+      (ch.faces || []).forEach(function (fc) {
+        if (!fc.img) issues.push({ level: 'warn', text: nm + '：表情「' + (fc.name || '?') + '」还没选图。' });
+        else if (!(project.assets || {})[fc.img]) {
+          issues.push({ level: 'warn', text: nm + '：表情「' + (fc.name || '?') + '」的图已被删除。' });
+        }
+      });
+    });
+    // 场景里引用的角色还在不在
+    nodes.forEach(function (n, ni) {
+      var actors = (n.stage && n.stage.actors) || [];
+      actors.forEach(function (a, ai) {
+        if (a.character && !findCharacter(project, a.character)) {
+          issues.push({
+            level: 'error', nodeId: n.id,
+            text: '第 ' + (ni + 1) + ' 场第 ' + (ai + 1) + ' 个角色指向的角色定义已经不存在了，请重新选一个角色。'
+          });
+        }
+        if (!a.character && !a.sprite) {
+          issues.push({
+            level: 'warn', nodeId: n.id,
+            text: '第 ' + (ni + 1) + ' 场有角色还没选立绘。'
+          });
+        }
+      });
+    });
+
     var ui = project.config.ui;
     if (ui) {
       if (ui.font && !(project.assets || {})[ui.font]) issues.push({ level: 'warn', text: '自定义字体已被删除，会退回系统字体。' });
@@ -945,6 +1123,46 @@
 
   /* ---------------- 迁移 / 归一化 ---------------- */
 
+  /**
+   * v7 → v8 迁移：把散落在各个场景里的内联角色收拢成 project.characters。
+   *
+   * 同一个角色原来在每个场景各存一份（名字 + 立绘 + 全部表情），这里按
+   * 「名字 + 立绘」去重合并，表情按名字合并。合并后场景里只留一个引用，
+   * 内联字段清空 —— 从此改一次立绘，19 个场景一起变。
+   */
+  function liftCharacters(p) {
+    var made = [];
+    var byKey = {};
+    (p.nodes || []).forEach(function (n) {
+      var actors = (n.stage && n.stage.actors) || [];
+      actors.forEach(function (a) {
+        // 没名字又没立绘的占位角色没什么可共享的，留在原地
+        if (!a.name && !a.sprite && !(a.faces && a.faces.length)) return;
+        var key = (a.name || '') + '|' + (a.sprite || '');
+        var ch = byKey[key];
+        if (!ch) {
+          ch = newCharacter({ name: a.name || '', sprite: a.sprite || null });
+          byKey[key] = ch;
+          made.push(ch);
+        }
+        // 表情按名字合并（同一个「微笑」在不同场景指向不同图时，以先出现的为准）
+        (a.faces || []).forEach(function (fc) {
+          if (!fc || !fc.name) return;
+          var exists = false;
+          for (var i = 0; i < ch.faces.length; i++) if (ch.faces[i].name === fc.name) exists = true;
+          if (!exists) ch.faces.push(newFace({ name: fc.name, img: fc.img || null }));
+        });
+        // 内联字段全部清空 —— 名字也清，否则把角色改名成空之后
+        // 旧场景里那份残留的 name 会又冒出来，看着像「改不掉」。
+        a.character = ch.id;
+        a.name = '';
+        a.sprite = null;
+        a.faces = [];
+      });
+    });
+    return made;
+  }
+
   function normalize(raw) {
     if (!raw || typeof raw !== 'object') throw new Error('文件内容不是有效的工程数据');
     if (raw.format && raw.format !== FORMAT) throw new Error('这不是文游工坊的工程文件（format=' + raw.format + '）');
@@ -1004,6 +1222,17 @@
     }
     if (!p.nodes.length) p.nodes = [newNode({ title: '开场', text: '' })];
     if (!p.config.startNode || nodeIndex(p, p.config.startNode) < 0) p.config.startNode = p.nodes[0].id;
+
+    // 角色：新格式直接读；老格式（v7 及以前）没有 characters，从场景里收拢出来
+    if (Array.isArray(raw.characters)) {
+      p.characters = raw.characters.map(function (c) {
+        var ch = assign(newCharacter(), c);
+        ch.faces = Array.isArray(c.faces) ? c.faces.map(function (fc) { return assign(newFace(), fc); }) : [];
+        return ch;
+      });
+    } else {
+      p.characters = liftCharacters(p);
+    }
     return p;
   }
 
@@ -1068,6 +1297,10 @@
     nodeLabel: nodeLabel,
     firstLine: firstLine,
     DISPLAY_MODES: DISPLAY_MODES,
+    ORNAMENTS: ORNAMENTS,
+    SIZE_FIELDS: SIZE_FIELDS,
+    getPath: getPath,
+    clampNum: clampNum,
     CHOICE_LAYOUTS: CHOICE_LAYOUTS,
     CHOICE_SHAPES: CHOICE_SHAPES,
     CHOICE_ALIGNS: CHOICE_ALIGNS,
@@ -1111,6 +1344,15 @@
     stageDuration: stageDuration,
     actorHasStage: actorHasStage,
     newFace: newFace,
+    newCharacter: newCharacter,
+    characterUsage: characterUsage,
+    charactersOf: charactersOf,
+    findCharacter: findCharacter,
+    findCharacterByName: findCharacterByName,
+    resolveActor: resolveActor,
+    characterFaceImage: characterFaceImage,
+    characterFaceNames: characterFaceNames,
+    liftCharacters: liftCharacters,
     actorFaceImage: actorFaceImage,
     actorFaceNames: actorFaceNames,
     actorImageKey: actorImageKey,

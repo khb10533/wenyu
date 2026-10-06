@@ -160,6 +160,10 @@
     var c = this.root.classList;
     this.applyChoiceLayout(ui.choice.layout);
     ['bar', 'card', 'plain', 'numbered'].forEach(function (k) { c.toggle('wy-shape-' + k, ui.choice.shape === k); });
+    // 注意：bg 必须在这两句之前取。原来它声明在后面，
+    // 靠 var 提升拿到 undefined，导致 wy-choicebg-img 永远是 false ——
+    // 也就是「选项框素材 + 九宫格」这条分支其实从来没生效过。
+    var bg = ui.choice.bg ? this.project.assets[ui.choice.bg] : null;
     c.toggle('wy-choicebg-slice', ui.choice.bgFit === 'slice');
     c.toggle('wy-choicebg-img', !!(bg && bg.data));
 
@@ -171,7 +175,6 @@
     this.root.style.setProperty('--wy-choice-w',
       ui.choice.width === 'wide' ? '80%' : (ui.choice.width === 'narrow' ? '60%' : '100%'));
 
-    var bg = ui.choice.bg ? this.project.assets[ui.choice.bg] : null;
     this.root.style.setProperty('--wy-choice-img', (bg && bg.data) ? 'url("' + bg.data + '")' : 'none');
 
     // 自由摆放的坐标
@@ -183,6 +186,32 @@
     // 对话框样式：贴边整条 / 悬浮卡片
     c.toggle('wy-box-band', ui.box.style !== 'card');
     c.toggle('wy-box-card', ui.box.style === 'card');
+
+    // ---- 尺寸：全部走 CSS 变量，0 表示「跟随内置默认」----
+    // 用字符串 '0' 而不是删掉变量，CSS 里的 calc() 才好统一处理。
+    var sz = function (name, val, unit) {
+      self.root.style.setProperty('--wy-' + name, (val || 0) + (unit || 'px'));
+    };
+    sz('box-fs', ui.box.fontSize);
+    sz('box-padx', ui.box.padX);
+    sz('box-pady', ui.box.padY);
+    sz('choice-fs', ui.choice.fontSize);
+    sz('choice-padx', ui.choice.padX);
+    sz('choice-pady', ui.choice.padY);
+    sz('choice-gap', ui.choice.gap, '');
+    sz('choice-minh', ui.choice.minH);
+    sz('choice-inset', ui.choice.inset);
+
+    // 字号 / 最小高度：只有真的指定了才加开关类。
+    // 不能无条件写成 font-size: var(--wy-box-fs) —— 值是 0px 时文字会消失。
+    c.toggle('wy-boxfs-on', ui.box.fontSize > 0);
+    c.toggle('wy-choicefs-on', ui.choice.fontSize > 0);
+    c.toggle('wy-choiceminh-on', ui.choice.minH > 0);
+    c.toggle('wy-align-center-p', ui.choice.align === 'center');
+
+    // 装饰风格：关掉就退回朴素界面（花边、金线、辉光全撤）
+    c.toggle('wy-orn-rune', ui.ornament !== 'none');
+    c.toggle('wy-orn-none', ui.ornament === 'none');
 
     // 界面素材：作者把自己的图换上去（对话框底、名牌、选项框、图鉴卡、存档格、面板）
     var skins = ui.skins || {};

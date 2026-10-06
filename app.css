@@ -8,15 +8,20 @@
  * ============================================================ */
 
 :root {
-  --bg: #0f1115;
-  --panel: #171b22;
-  --panel-2: #1e242e;
-  --panel-3: #262e3a;
-  --fg: #e9edf2;
-  --dim: #8b95a5;
-  --line: rgba(255, 255, 255, .09);
-  --accent: #5aa9ff;
-  --accent-dim: rgba(90, 169, 255, .16);
+  /* 异次元配色：深空紫底 + 金线 + 青紫渐变强调色 */
+  --bg: #0a0916;
+  --panel: #14112a;
+  --panel-2: #1c1738;
+  --panel-3: #272049;
+  --fg: #ece9ff;
+  --dim: #9b93c4;
+  --line: rgba(168, 150, 255, .15);
+  --accent: #a78bfa;
+  --accent-2: #67e8f9;
+  --gold: #d9c08a;
+  --edge: rgba(217, 192, 138, .34);
+  --glow: rgba(167, 139, 250, .34);
+  --accent-dim: rgba(167, 139, 250, .18);
   --ok: #4ade80;
   --warn: #fbbf24;
   --danger: #ff6b6b;
@@ -206,7 +211,7 @@ button, input, select, textarea {
 }
 .wy-input:focus, .wy-select:focus, .wy-area:focus {
   border-color: var(--accent);
-  background: rgba(90, 169, 255, .07);
+  background: rgba(167, 139, 250, .1);
 }
 .wy-area {
   resize: vertical;
@@ -265,7 +270,7 @@ button, input, select, textarea {
   cursor: pointer;
   transition: border-color .15s, transform .1s;
 }
-.wy-card:active { transform: scale(.99); border-color: rgba(90, 169, 255, .45); }
+.wy-card:active { transform: scale(.99); border-color: rgba(217, 192, 138, .5); }
 .wy-card.is-start { border-left: 3px solid var(--ok); }
 .wy-card.is-broken { border-color: rgba(255, 107, 107, .5); }
 
@@ -951,4 +956,412 @@ button, input, select, textarea {
 @media (orientation: landscape) and (min-width: 720px) {
   .wy-stagecanvas { width: min(42%, calc(min(70vh, 560px) * 9 / 16)); }
   .wy-stagecanvas.wy-canvas-land { width: min(58%, calc(min(70vh, 560px) * 16 / 9)); }
+}
+
+/* ============================================================
+ * 角色页（名字 + 立绘 + 表情差分）
+ * 这些样式只作用于编辑器，不影响导出的游戏。
+ * ============================================================ */
+
+.wy-charcard {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.wy-charcard-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wy-charthumb {
+  flex: none;
+  width: 66px;
+  height: 88px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.wy-charthumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;   /* 立绘不能裁，裁了就看不全人 */
+}
+.wy-charthumb .none {
+  font-size: 11px;
+  color: var(--dim);
+}
+.wy-charmeta {
+  flex: 1;
+  min-width: 0;
+}
+.wy-charcount {
+  font-size: 12px;
+  color: var(--dim);
+  margin-top: 6px;
+  line-height: 1.45;
+}
+
+.wy-charfaces {
+  margin-top: 12px;
+}
+.wy-facegrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.wy-facecell {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .04);
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 78px;
+  padding: 4px;
+  color: inherit;
+}
+.wy-facecell img {
+  width: 100%;
+  height: 62px;
+  object-fit: contain;
+  display: block;
+}
+.wy-facecell-none {
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--dim);
+}
+.wy-facecell-name {
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 2px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wy-faceadd {
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-line;
+  border-style: dashed;
+}
+
+/* 表情编辑弹窗里的预览：给点余地，看得出脸 */
+.wy-facepreview {
+  height: 150px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.wy-facepreview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.wy-facepreview.empty {
+  color: var(--dim);
+  font-size: 13px;
+}
+
+/* 舞台编辑器里：选角色上场的列表 */
+.wy-charpick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.wy-charpick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .04);
+  color: inherit;
+  cursor: pointer;
+}
+.wy-charpick-row .th {
+  flex: none;
+  width: 42px;
+  height: 56px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.wy-charpick-row .th img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.wy-charpick-row .th .none {
+  font-size: 10px;
+  color: var(--dim);
+}
+.wy-charpick-row .mt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.wy-charpick-row .mt b {
+  font-size: 14px;
+  font-weight: 600;
+}
+.wy-charpick-row .mt span {
+  font-size: 11px;
+  color: var(--dim);
+  line-height: 1.4;
+}
+
+/* 舞台编辑器里：选中角色的表情一览（只读） */
+.wy-faceov {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.wy-facechip {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .04);
+  padding: 3px;
+  text-align: center;
+}
+.wy-facechip img {
+  width: 100%;
+  height: 52px;
+  object-fit: contain;
+  display: block;
+}
+.wy-facechip span {
+  display: block;
+  font-size: 10px;
+  color: var(--dim);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+ * 异次元装饰层（编辑器）
+ *
+ * 和播放器那套是同一个视觉语言：深空紫底、金线描边、辉光、符文分隔。
+ * 全部 CSS 画，不加图片。
+ * ============================================================ */
+
+/* ---------- 氛围底：两团柔光 + 极淡的网格，让纯色不再死板 ---------- */
+html, body {
+  background:
+    radial-gradient(120% 70% at 12% -12%, rgba(167, 139, 250, .20) 0%, transparent 62%),
+    radial-gradient(110% 66% at 92% 108%, rgba(103, 232, 249, .13) 0%, transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* ---------- 顶栏：渐变 + 金色下沿 ---------- */
+.wy-topbar {
+  background:
+    linear-gradient(180deg, rgba(167, 139, 250, .16) 0%, transparent 62%),
+    linear-gradient(180deg, var(--panel-2), var(--panel));
+  border-bottom: 1px solid var(--line);
+  box-shadow:
+    0 1px 0 var(--edge) inset,
+    0 10px 26px -20px var(--glow);
+}
+.wy-topbar-title { letter-spacing: .5px; }
+
+/* ---------- 页签栏：选中项是一块会发光的符牌 ---------- */
+.wy-tabbar {
+  background: linear-gradient(180deg, var(--panel), var(--bg));
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -10px 26px -22px var(--glow);
+}
+.wy-tab {
+  position: relative;
+  transition: color .18s, transform .18s;
+}
+.wy-tab:active { transform: scale(.94); }
+.wy-tab.on {
+  color: var(--fg);
+  text-shadow: 0 0 14px var(--glow);
+}
+/* 选中项顶上一道金色短线 */
+.wy-tab.on::before {
+  content: "";
+  position: absolute;
+  top: 4px; left: 50%;
+  width: 20px; height: 2px;
+  margin-left: -10px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+.wy-tab.on i {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 0 8px var(--glow));
+}
+
+/* ---------- 卡片：金线细边 + 内辉光 + 左上角饰 ---------- */
+.wy-card {
+  background:
+    linear-gradient(150deg, rgba(167, 139, 250, .10) 0%, transparent 46%),
+    var(--panel);
+  border: 1px solid var(--line);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, .04) inset,
+    0 8px 26px -22px rgba(0, 0, 0, .9);
+  position: relative;
+}
+.wy-card::after {
+  content: "";
+  position: absolute;
+  /* 卡片内边距是 13/14px，角饰要收在里面，否则会压到文字 */
+  top: 4px; left: 4px;
+  width: 10px; height: 10px;
+  border-top: 2px solid var(--edge);
+  border-left: 2px solid var(--edge);
+  border-top-left-radius: 6px;
+  pointer-events: none;
+}
+
+/* ---------- section 标题：两侧符文短线 ---------- */
+.wy-section {
+  color: var(--fg);
+  letter-spacing: .6px;
+}
+.wy-section::before {
+  content: "◆";
+  color: var(--gold);
+  font-size: 9px;
+  margin-right: 8px;
+  vertical-align: 2px;
+  opacity: .9;
+}
+
+/* ---------- 按钮：描金 + 按下辉光 ---------- */
+.wy-btn {
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .05), transparent),
+    var(--panel-2);
+  transition: transform .12s ease, box-shadow .18s, border-color .18s, background .18s;
+}
+.wy-btn:active { transform: scale(.97); }
+.wy-btn.wy-primary {
+  background-image: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background-color: transparent;
+  border-color: rgba(255, 255, 255, .28);
+  color: #0b0a16;
+  font-weight: 700;
+  box-shadow: 0 4px 20px -8px var(--glow);
+}
+.wy-btn.wy-primary:active { box-shadow: 0 0 26px -6px var(--glow); }
+.wy-btn-ghost {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .035);
+}
+.wy-btn-ghost.primary {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--fg);
+  background: linear-gradient(135deg, rgba(167, 139, 250, .22), rgba(103, 232, 249, .12));
+}
+
+/* ---------- 表单控件：聚焦时描金 ---------- */
+.wy-input, .wy-area, .wy-select {
+  background: rgba(255, 255, 255, .045);
+  border: 1px solid var(--line);
+  transition: border-color .18s, box-shadow .18s;
+}
+.wy-input:focus, .wy-area:focus, .wy-select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--gold) 62%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.wy-range2, .wy-range { accent-color: var(--accent); }
+
+/* ---------- 场景浮层 / 舞台：换掉旧底色 ---------- */
+.wy-sheet-full {
+  background:
+    radial-gradient(120% 60% at 50% -10%, var(--glow) 0%, transparent 58%),
+    var(--bg);
+}
+.wy-sheet-head {
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 var(--edge) inset;
+}
+.wy-sheet-body { background: transparent; }
+
+/* 舞台画布：四周一圈金线，像个取景框 */
+.wy-stagecanvas {
+  border: 1px solid var(--edge);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, .5) inset,
+    0 12px 34px -24px var(--glow);
+}
+
+/* ---------- 弹窗 / 菜单：金线 + 辉光 ---------- */
+.wy-modal, .wy-menu {
+  background:
+    linear-gradient(160deg, rgba(167, 139, 250, .12) 0%, transparent 48%),
+    var(--panel-2);
+  border: 1px solid var(--edge);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, .6),
+    0 20px 60px -24px rgba(0, 0, 0, .9),
+    0 0 60px -30px var(--glow);
+}
+.wy-modal-mask { background: rgba(6, 5, 14, .72); backdrop-filter: blur(3px); }
+.wy-menu-item { border-bottom: 1px solid var(--line); }
+
+/* ---------- 页签 / 场景页签的选中态 ---------- */
+.wy-nodetab.on, .wy-actorchip.on {
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  background: linear-gradient(135deg, rgba(167, 139, 250, .26), rgba(103, 232, 249, .12));
+  box-shadow: 0 0 18px -8px var(--glow);
+}
+
+/* ---------- 变量行 / 素材格 ---------- */
+.wy-asset {
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.wy-asset-thumb { background: rgba(0, 0, 0, .35); }
+
+/* ---------- 顶部的加载/欢迎页 ---------- */
+.wy-welcome {
+  background:
+    radial-gradient(120% 70% at 50% -10%, var(--glow) 0%, transparent 62%),
+    var(--bg);
 }
